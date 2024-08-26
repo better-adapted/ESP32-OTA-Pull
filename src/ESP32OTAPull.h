@@ -34,7 +34,7 @@ SOFTWARE.
 class ESP32OTAPull
 {
 public:
-    enum ActionType { DONT_DO_UPDATE, UPDATE_BUT_NO_BOOT, UPDATE_AND_BOOT };
+    enum ActionType { DONT_DO_UPDATE=0, UPDATE_BUT_NO_BOOT=1, UPDATE_AND_BOOT=2 };
 
     // Return codes from CheckForOTAUpdate
     enum ErrorCode { UPDATE_AVAILABLE = -3, NO_UPDATE_PROFILE_FOUND = -2, NO_UPDATE_AVAILABLE = -1, UPDATE_OK = 0, HTTP_FAILED = 1, WRITE_ERROR = 2, JSON_PROBLEM = 3, OTA_UPDATE_FAIL = 4 };
@@ -100,7 +100,7 @@ private:
                     size_t bytes_written = Update.write(buff, bytes_read);
                     if (bytes_read != bytes_written)
                     {
-                        // Serial.printf("Unexpected error in OTA: %d %d %d\n", bytes_to_read, bytes_read, bytes_written);
+                        Serial.printf("Unexpected error in OTA: %d %d %d\n", bytes_to_read, bytes_read, bytes_written);
                         break;
                     }
                     offset += bytes_written;
@@ -186,6 +186,7 @@ public:
     /// @return ErrorCode or HTTP failure code (see enum above)
     int CheckForOTAUpdate(const char* JSON_URL, const char *CurrentVersion, ActionType Action = UPDATE_AND_BOOT)
     {
+		Serial.println("CheckForOTAUpdate,Begin");
         CurrentVersion = CurrentVersion == NULL ? "" : CurrentVersion;
 
         // Downloading OTA Json...
@@ -193,17 +194,24 @@ public:
         int httpResponseCode = DownloadJson(JSON_URL, Payload);
         if (httpResponseCode != 200)
             return httpResponseCode > 0 ? httpResponseCode : HTTP_FAILED;
+            
+        String PayloadPretty = Payload;
+        PayloadPretty.replace("\n","<LF>\r\n");
+        Serial.println(PayloadPretty);
 
         // Deserialize the JSON file downloaded from user's site
         DynamicJsonDocument doc(6000);
         DeserializationError deserialization = deserializeJson(doc, Payload.c_str());
         if (deserialization != DeserializationError::Ok)
             return JSON_PROBLEM;
-
+            
         String DeviceName = Device.isEmpty() ? WiFi.macAddress() : Device;
         String BoardName = Board.isEmpty() ? ARDUINO_BOARD : Board;
         String ConfigName = Config.isEmpty() ? "" : Config;
+        
         bool foundProfile = false;
+        
+        uint32_t flags=0;
 
         // Step through the configurations looking for a match
         for (auto config : doc["Configurations"].as<JsonArray>())
@@ -212,16 +220,47 @@ public:
             String CDevice = config["Device"].isNull() ? "" : (const char *)config["Device"];
             CVersion = config["Version"].isNull() ? "" : (const char *)config["Version"];
             String CConfig = config["Config"].isNull() ? "" : (const char *)config["Config"];
-            if ((CBoard.isEmpty() || CBoard == BoardName) &&
-                (CDevice.isEmpty() || CDevice == DeviceName) &&
-                (CConfig.isEmpty() || CConfig == ConfigName))
-            {
-                if (CVersion.isEmpty() || CVersion > String(CurrentVersion) ||
-                    (DowngradesAllowed && CVersion != String(CurrentVersion)))
-                    return Action == DONT_DO_UPDATE ? UPDATE_AVAILABLE : DoOTAUpdate(config["URL"], Action);
+            
+            if ((CBoard.isEmpty() || CBoard == BoardName) && (CDevice.isEmpty() || CDevice == DeviceName) && (CConfig.isEmpty() || CConfig == ConfigName))
+            {							
+				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str());
+				                
+                if (CVersion.isEmpty())
+                {
+					flags|=0x0001;
+                }
+                                               
+                if (CVersion > String(CurrentVersion))
+                {
+					flags|=0x0002;
+                }
+                
+                if (DowngradesAllowed && CVersion != String(CurrentVersion))
+                {
+					flags|=0x0004;
+                }
+                
                 foundProfile = true;
+                
+		        if(flags)
+		        {			
+					Serial.printf("flags=%lu\r\n",flags);
+					if(Action == DONT_DO_UPDATE)
+					{
+						return UPDATE_AVAILABLE;
+					}
+					else
+					{
+						return DoOTAUpdate(config["URL"], Action);
+					}					
+				}
+                
             }
         }
+        
+        
+		Serial.println("CheckForOTAUpdate,Done");
+		       
         return foundProfile ? NO_UPDATE_AVAILABLE : NO_UPDATE_PROFILE_FOUND;
     }
 };
