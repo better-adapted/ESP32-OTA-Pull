@@ -220,10 +220,12 @@ public:
             String CDevice = config["Device"].isNull() ? "" : (const char *)config["Device"];
             CVersion = config["Version"].isNull() ? "" : (const char *)config["Version"];
             String CConfig = config["Config"].isNull() ? "" : (const char *)config["Config"];
+            String CURL = config["URL"].isNull() ? "" : (const char *)config["URL"];
+            
             
             if ((CBoard.isEmpty() || CBoard == BoardName) && (CDevice.isEmpty() || CDevice == DeviceName) && (CConfig.isEmpty() || CConfig == ConfigName))
             {							
-				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str());
+				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s,CURL=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str(),CURL.c_str());
 				                
                 if (CVersion.isEmpty())
                 {
