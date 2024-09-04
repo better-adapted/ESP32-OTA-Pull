@@ -37,7 +37,7 @@ public:
     enum ActionType { DONT_DO_UPDATE=0, UPDATE_BUT_NO_BOOT=1, UPDATE_AND_BOOT=2 };
 
     // Return codes from CheckForOTAUpdate
-    enum ErrorCode { UPDATE_AVAILABLE = -3, NO_UPDATE_PROFILE_FOUND = -2, NO_UPDATE_AVAILABLE = -1, UPDATE_OK = 0, HTTP_FAILED = 1, WRITE_ERROR = 2, JSON_PROBLEM = 3, OTA_UPDATE_FAIL = 4 };
+    enum ErrorCode { UPDATE_AVAILABLE_FORCE_REQ = -4,UPDATE_AVAILABLE = -3, NO_UPDATE_PROFILE_FOUND = -2, NO_UPDATE_AVAILABLE = -1, UPDATE_OK = 0, HTTP_FAILED = 1, WRITE_ERROR = 2, JSON_PROBLEM = 3, OTA_UPDATE_FAIL = 4 };
 
 private:
     void (*Callback)(int offset, int totallength) = NULL;
@@ -205,10 +205,6 @@ public:
         if (deserialization != DeserializationError::Ok)
             return JSON_PROBLEM;
             
-        String DeviceName = Device.isEmpty() ? WiFi.macAddress() : Device;
-        String BoardName = Board.isEmpty() ? ARDUINO_BOARD : Board;
-        String ConfigName = Config.isEmpty() ? "" : Config;
-        
         bool foundProfile = false;
         
         uint32_t flags=0;
@@ -221,12 +217,15 @@ public:
             CVersion = config["Version"].isNull() ? "" : (const char *)config["Version"];
             String CConfig = config["Config"].isNull() ? "" : (const char *)config["Config"];
             String CURL = config["URL"].isNull() ? "" : (const char *)config["URL"];
+            String CFORCE = config["FORCE"].isNull() ? "" : (const char *)config["FORCE"];
             
+            int device_search_index = CDevice.indexOf(Device); // check if the "Device" is in the comma spaced list (string) of devices!
+            Serial.printf("OTA,device_search_index=%d",device_search_index);
             
-            if ((CBoard.isEmpty() || CBoard == BoardName) && (CDevice.isEmpty() || CDevice == DeviceName) && (CConfig.isEmpty() || CConfig == ConfigName))
+            if ((CBoard.isEmpty() || CBoard == Board) && (CDevice.isEmpty() || (device_search_index)) && (CConfig.isEmpty() || CConfig == Config))
             {							
-				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s,CURL=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str(),CURL.c_str());
-				                
+				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s,CFORCE=%s,CURL=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str(),CFORCE.c_str(),CURL.c_str());
+				
                 if (CVersion.isEmpty())
                 {
 					flags|=0x0001;
@@ -249,7 +248,14 @@ public:
 					Serial.printf("flags=%lu\r\n",flags);
 					if(Action == DONT_DO_UPDATE)
 					{
-						return UPDATE_AVAILABLE;
+						if(CFORCE.equals("UPDATE_NOW"))
+						{
+							return UPDATE_AVAILABLE_FORCE_REQ;
+						}
+						else
+						{
+							return UPDATE_AVAILABLE;
+						}
 					}
 					else
 					{
