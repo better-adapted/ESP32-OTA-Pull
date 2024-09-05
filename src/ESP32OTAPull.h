@@ -196,7 +196,7 @@ public:
             return httpResponseCode > 0 ? httpResponseCode : HTTP_FAILED;
             
         String PayloadPretty = Payload;
-        PayloadPretty.replace("\n","<LF>\r\n");
+        PayloadPretty.replace("\n","\r\n");
         Serial.println(PayloadPretty);
 
         // Deserialize the JSON file downloaded from user's site
