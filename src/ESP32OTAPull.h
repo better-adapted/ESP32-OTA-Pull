@@ -232,6 +232,8 @@ public:
 				continue;
 			}
 			
+			foundProfile=true;
+			
 			if(!CDevice.isEmpty())
 			{
 				// we have a list of MAC's
