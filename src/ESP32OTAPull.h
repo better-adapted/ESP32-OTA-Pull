@@ -238,6 +238,12 @@ public:
 			{
 				// we have a list of MAC's
 				// device matched with MAC in the JSON data (CDevice)
+                if (CVersion.equals("EXCLUDE"))
+                {
+					// no updated needed!
+					return NO_UPDATE_AVAILABLE;					
+				}
+
                 if (CVersion != String(CurrentVersion))
                 {
 					// versions do not match
