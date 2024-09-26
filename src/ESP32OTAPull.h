@@ -210,6 +210,7 @@ public:
         uint32_t flags=0;
 
         // Step through the configurations looking for a match
+        int config_index=0;
         for (auto config : doc["Configurations"].as<JsonArray>())
         {
             String CBoard = config["Board"].isNull() ? "" : (const char *)config["Board"];
@@ -220,32 +221,24 @@ public:
             String CFORCE = config["FORCE"].isNull() ? "" : (const char *)config["FORCE"];
             
             int device_search_index = CDevice.indexOf(Device); // check if the "Device" is in the comma spaced list (string) of devices!
-            Serial.printf("OTA,device_search_index=%d",device_search_index);
             
-            if ((CBoard.isEmpty() || CBoard == Board) && (CDevice.isEmpty() || (device_search_index)) && (CConfig.isEmpty() || CConfig == Config))
-            {							
-				Serial.printf("CBoard()=%s,CDevice()=%s,CVersion()=%s,CConfig()=%s,CFORCE=%s,CURL=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str(),CFORCE.c_str(),CURL.c_str());
-				
-                if (CVersion.isEmpty())
+            Serial.printf("OTA,config_index=%d,device_search_index=%d\r\n",config_index,device_search_index);
+			Serial.printf("CBoard()=%s\r\nCDevice()=%s\r\nCVersion()=%s\r\nCConfig()=%s\r\nCFORCE=%s\r\nCURL=%s\r\n",CBoard.c_str(),CDevice.c_str(),CVersion.c_str(),CConfig.c_str(),CFORCE.c_str(),CURL.c_str());
+            			            
+       		if( (!CBoard.equals(Board)) || (!CConfig.equals(Config)) )
+       		{
+				// board or config don't match
+				Serial.printf("OTA,skipping config_index %d\r\n",config_index);
+				continue;
+			}
+			
+			if(!CDevice.isEmpty())
+			{
+				// we have a list of MAC's
+				// device matched with MAC in the JSON data (CDevice)
+                if (CVersion != String(CurrentVersion))
                 {
-					flags|=0x0001;
-                }
-                                               
-                if (CVersion > String(CurrentVersion))
-                {
-					flags|=0x0002;
-                }
-                
-                if (DowngradesAllowed && CVersion != String(CurrentVersion))
-                {
-					flags|=0x0004;
-                }
-                
-                foundProfile = true;
-                
-		        if(flags)
-		        {			
-					Serial.printf("flags=%lu\r\n",flags);
+					// versions do not match
 					if(Action == DONT_DO_UPDATE)
 					{
 						if(CFORCE.equals("UPDATE_NOW"))
@@ -262,8 +255,43 @@ public:
 						return DoOTAUpdate(config["URL"], Action);
 					}					
 				}
-                
+				else
+				{
+					// no updated needed!
+					return NO_UPDATE_AVAILABLE;
+				}
+			}
+			else
+            {
+				// we don't have a MAC - so this is a default version!
+				// matched on Board and Config Alone
+                if (CVersion != String(CurrentVersion))
+                {
+					// versions do not match
+					if(Action == DONT_DO_UPDATE)
+					{
+						if(CFORCE.equals("UPDATE_NOW"))
+						{
+							return UPDATE_AVAILABLE_FORCE_REQ;
+						}
+						else
+						{
+							return UPDATE_AVAILABLE;
+						}
+					}
+					else
+					{
+						return DoOTAUpdate(config["URL"], Action);
+					}					
+				}
+				else
+				{
+					// no updated needed!
+					return NO_UPDATE_AVAILABLE;
+				}
             }
+			
+			config_index++;
         }
         
         
