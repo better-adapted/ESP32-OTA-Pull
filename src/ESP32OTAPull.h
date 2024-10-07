@@ -206,8 +206,6 @@ public:
             return JSON_PROBLEM;
             
         bool foundProfile = false;
-        
-        uint32_t flags=0;
 
         // Step through the configurations looking for a match
         int config_index=0;
